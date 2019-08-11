@@ -6,6 +6,8 @@ AWS CloudFormationのテンプレート。RDS Auroraを作成する参考テン�
 
 ## CreateSampleRDSAuroraの構成イメージ
 
+![CreateSampleRDSAuroraの構成イメージ](https://github.com/tanukinokegawa/AWSCloudFormationSampleRDSAurora/blob/master/img/20190810_AWS_CloudFormation_CreateRDSAurora_01.PNG)
+
 ## 事前準備
 
 - RDS Auroraを配置するための、VPC/サブネットを用意する。
@@ -18,6 +20,8 @@ AWS CloudFormationのテンプレート。RDS Auroraを作成する参考テン�
 ## 実行
 
 CloudFormationにてスタックを作成し、テンプレート(CreateSampleRDSAurora.yaml/json)を設定する。
+
+![CloudFormationのテンプレート選択](https://github.com/tanukinokegawa/AWSCloudFormationSampleRDSAurora/blob/master/img/20190810_AWS_CloudFormation_CreateRDSAurora_02.PNG)
 
 ※もちろん、S3にテンプレートを置いて実行でもOKです！
 
