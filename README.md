@@ -62,6 +62,7 @@ MyLocationにMySQLクライアントをインストールしておく。
 * 今回はAurora MySQLを作成しています。
 * 今回はインターネット経由で接続するようにしているので、パブリックサブネットを作ったり、PubliclyAccessibleをtrueにしていますが、一般的な構成ならばプライベートサブネットにして、PubliclyAccessibleはfalseにするものと思われます。
 * 日本語の文字化けを避けるために、characterはutf8にしておいた方が良いかと存じます。詳しくは参考URLをご参照ください。
+* 今回はRDS Auroraのインスタンスは1つのみになっています。これではAurora DB クラスターの耐障害性が機能していない状態です。耐障害性を持たせたい場合は、せめて2インスタンス（プライマリとレプリカ）をご用意ください。
 * 本稿はサンプルとしてご参考になればと記したものです。ご自分の環境にそぐわない場合もございますことご承知おきください。
 
 
@@ -71,3 +72,4 @@ MyLocationにMySQLクライアントをインストールしておく。
 * [MySQLの日本語文字化け回避！文字コードを確認＆変更する方法](https://proengineer.internous.co.jp/content/columnfeature/6653)
 * [[AWS] RDSのパラメータグループ仕様変更がクリティカルな件](https://noname.work/?p=1231)
 * [AWS RDS デフォルトDBパラメータグループ運用止めませんか？](http://htnosm.hatenablog.com/entry/2015/08/02/210000)
+* [Aurora DB クラスターのバックアップと復元の概要](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/AuroraUserGuide/Aurora.Managing.Backups.html)
