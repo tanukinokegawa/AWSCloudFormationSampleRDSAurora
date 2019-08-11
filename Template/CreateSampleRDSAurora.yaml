@@ -1,0 +1,674 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create AWS CloudFormation Customize Virtual Private Cloud"
+Parameters: 
+  EnvironmentTypeTag: 
+    Description: "Please input EnvironmentType."
+    Type: String
+    Default: Dev
+    AllowedPattern: "[-a-zA-Z]*"
+    ConstraintDescription: ""
+  ProjectTag: 
+    Description: "Please input Project name."
+    Type: String
+    Default: Sample
+    AllowedPattern: "[-a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  DBParameterGroupFamily: 
+    Type: String
+    Description: "Please input DBParameterGroupFamily."
+    Default: "aurora5.6"
+    AllowedPattern: "[-_. a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  RDSAuroraClusterName: 
+    Type: String
+    Description: "Please input Cluster Id in RDS Aurora."
+    Default: "my-cluster1"
+    AllowedPattern: "[-_ a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  RDSAuroraDBname: 
+    Type: String
+    Description: "Please input DB name in RDS Aurora."
+    Default: SampleDB
+    AllowedPattern: "[-a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  RDSAuroraUser: 
+    Type: String
+    Description: "Please input DB user in RDS Aurora."
+    Default: admin
+    AllowedPattern: "[-a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  RDSAuroraPassword: 
+    Type: String
+    Description: "Please input DB password in RDS Aurora."
+    Default: admin123
+    AllowedPattern: "[-a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  VPC: 
+    Type: String
+    Description: "Please input VPC Id."
+    Default: "vpc-nnnnnnnn"
+    AllowedPattern: "[-_ a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  SubnetIdC: 
+    Type: String
+    Description: "Please input Subnet Id in ap-northeast-1c."
+    Default: "subnet-nnnnnnnnnnnnnnnnn"
+    AllowedPattern: "[-_ a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  SubnetIdD: 
+    Type: String
+    Description: "Please input Subnet Id in ap-northeast-1d."
+    Default: "subnet-nnnnnnnnnnnnnnnnn"
+    AllowedPattern: "[-_ a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  RDSAuroraEngineVersion: 
+    Type: String
+    Description: "Please input Engine Version in RDS Aurora MySQL."
+    Default: "5.6.10a"
+    AllowedPattern: "[-_. a-zA-Z0-9]*"
+    ConstraintDescription: ""
+  RDSAuroraInstanceClass: 
+    Description: "RDS Aurora Instance Class"
+    Type: String
+    Default: "db.t2.small"
+    AllowedValues: 
+      - "db.t2.small"
+      - "db.t2.medium"
+      - "db.t3.small"
+      - "db.t3.medium"
+      - "db.r4.large"
+      - "db.r4.xlarge"
+      - "db.r5.large"
+      - "db.r5.xlarge"
+    ConstraintDescription: "must be a valid RDS Aurora Instance Class."
+  MaintenanceTime: 
+    Description: "RDS Aurora Maintenance Time(UTC)"
+    Type: String
+    Default: "wed:15:48-wed:16:18"
+  RDSAuroraBackupRetentionPeriod: 
+    Description: "Please input the number of days for which automated backups are retained."
+    Type: Number
+    Default: 7
+  MyLocation: 
+    Description: " The IP address range that can be used to the RDS Aurora"
+    Type: String
+    MinLength: 9
+    MaxLength: 18
+    Default: "10.255.0.0/16"
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: "must be a valid IP CIDR range of the form x.x.x.x/x."
+  SnsTopic: 
+    Description: " Name of Sns Topic "
+    Type: String
+    Default: SampleTopic
+  RDSAuroraDBConnectionThreshold: 
+    Description: "Database Connection Threshold in RDS Aurora"
+    Type: Number
+    Default: 36
+  RDSAuroraFreeMemoryThreshold: 
+    Description: " Freeable Memory Threshold in RDS Aurora"
+    Type: Number
+    Default: 20971520
+
+Resources: 
+
+  # ===== ↓RDS AuroraのAZグループ作成↓ =====
+  RDSMultiAZSubnetGroup: 
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: 
+        "Fn::Join": 
+          - " "
+          - - DB
+            - Subnet
+            - Group
+            - for
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+      SubnetIds: 
+        - Ref: SubnetIdC
+        - Ref: SubnetIdD
+      Tags: 
+        - Key: Name
+          Value: 
+            "Fn::Join": 
+              - _
+              - - Ref: ProjectTag
+                - Ref: EnvironmentTypeTag
+                - Aurora
+                - group
+        - Key: EnvironmentType
+          Value: 
+            Ref: EnvironmentTypeTag
+        - Key: Project
+          Value: 
+            Ref: ProjectTag
+  # ===== ↑RDS AuroraのAZグループ作成↑ =====
+
+  # ===== ↓RDS Auroraのクラスタのセキュリティグループ作成↓ =====
+  RDSSecurityGroup: 
+    Type: "AWS::EC2::SecurityGroup"
+    Properties: 
+      GroupDescription: "Enable access from MyLocation."
+      VpcId: 
+        Ref: VPC
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 
+            Ref: MyLocation
+      Tags: 
+        - Key: Name
+          Value: 
+            "Fn::Join": 
+              - " "
+              - - Ref: ProjectTag
+                - Ref: EnvironmentTypeTag
+                - from
+                - MyLocation
+        - Key: EnvironmentType
+          Value: 
+            Ref: EnvironmentTypeTag
+        - Key: Project
+          Value: 
+            Ref: ProjectTag
+  # ===== ↑RDS Auroraのクラスタのセキュリティグループ作成↑ =====
+
+  # ===== ↓RDS Auroraのインスタンスのパラメータ作成↓ =====
+  RDSAuroraDBParameterGroup: 
+    Type: "AWS::RDS::DBParameterGroup"
+    Properties: 
+      Family: 
+        Ref: DBParameterGroupFamily
+      Description: 
+        "Fn::Join": 
+          - " "
+          - - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - parameter
+            - group
+      Tags: 
+        - Key: Name
+          Value: 
+            "Fn::Join": 
+              - "-"
+              - - Ref: ProjectTag
+                - Ref: EnvironmentTypeTag
+                - parameter
+                - group
+        - Key: EnvironmentType
+          Value: 
+            Ref: EnvironmentTypeTag
+        - Key: Project
+          Value: 
+            Ref: ProjectTag
+  # ===== ↑RDS Auroraのインスタンスのパラメータ作成↑ =====
+
+  # ===== ↓RDS Auroraのクラスタのパラメータ作成↓ =====
+  RDSDBClusterParameterGroup: 
+    Type: "AWS::RDS::DBClusterParameterGroup"
+    Properties: 
+      Parameters: 
+        character_set_client: utf8
+        character_set_connection: utf8
+        character_set_database: utf8
+        character_set_filesystem: utf8
+        character_set_results: utf8
+        character_set_server: utf8
+        binlog_format: "OFF"
+        "master-info-repository": "TABLE"
+        server_audit_logging: 0
+        "skip-character-set-client-handshake": 1
+      Family: 
+        Ref: DBParameterGroupFamily
+      Description: 
+        "Fn::Join": 
+          - "-"
+          - - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - parameter
+            - group
+      Tags: 
+        - Key: Name
+          Value: 
+            "Fn::Join": 
+              - " "
+              - - Ref: ProjectTag
+                - Ref: EnvironmentTypeTag
+                - cluster
+                - parameter
+                - group
+        - Key: EnvironmentType
+          Value: 
+            Ref: EnvironmentTypeTag
+        - Key: Project
+          Value: 
+            Ref: ProjectTag
+  # ===== ↑RDS Auroraのクラスタのパラメータ作成↑ =====
+
+  # ===== ↓RDS Auroraのクラスタ作成↓ =====
+  RDSDBCluster: 
+    Type: "AWS::RDS::DBCluster"
+    DependsOn: 
+      - RDSSecurityGroup
+      - RDSMultiAZSubnetGroup
+      - RDSDBClusterParameterGroup
+    Properties: 
+      AvailabilityZones: 
+        - "ap-northeast-1c"
+        - "ap-northeast-1d"
+      BackupRetentionPeriod: 
+        Ref: RDSAuroraBackupRetentionPeriod
+      DBClusterIdentifier: 
+        Ref: RDSAuroraClusterName
+      DatabaseName: 
+        Ref: RDSAuroraDBname
+      DBClusterParameterGroupName: 
+        Ref: RDSDBClusterParameterGroup
+      DBSubnetGroupName: 
+        Ref: RDSMultiAZSubnetGroup
+      Engine: aurora
+      EngineVersion: 
+        Ref: RDSAuroraEngineVersion
+      StorageEncrypted: true
+      MasterUsername: 
+        Ref: RDSAuroraUser
+      MasterUserPassword: 
+        Ref: RDSAuroraPassword
+      Port: 3306
+      PreferredMaintenanceWindow: 
+        Ref: MaintenanceTime
+      VpcSecurityGroupIds: 
+        - Ref: RDSSecurityGroup
+      Tags: 
+        - Key: Name
+          Value: 
+            "Fn::Join": 
+              - " "
+              - - Ref: ProjectTag
+                - Ref: EnvironmentTypeTag
+                - cluster
+        - Key: EnvironmentType
+          Value: 
+            Ref: EnvironmentTypeTag
+        - Key: Project
+          Value: 
+            Ref: ProjectTag
+  # ===== ↑RDS Auroraのクラスタ作成↑ =====
+
+  # ===== ↓RDS Auroraのインスタンス作成↓ =====
+  RDSAuroraInstance: 
+    Type: "AWS::RDS::DBInstance"
+    DependsOn: RDSDBCluster
+    Properties: 
+      Engine: aurora
+      EngineVersion: 
+        Ref: RDSAuroraEngineVersion
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: 
+        Ref: RDSDBCluster
+      DBInstanceClass: 
+        Ref: RDSAuroraInstanceClass
+      DBInstanceIdentifier: 
+        "Fn::Join": 
+          - "-"
+          - - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - aurora
+      DBParameterGroupName: 
+        Ref: RDSAuroraDBParameterGroup
+      DBSubnetGroupName: 
+        Ref: RDSMultiAZSubnetGroup
+      StorageEncrypted: true
+      LicenseModel: "general-public-license"
+      MonitoringInterval: 0
+      PubliclyAccessible: true
+      # 普通のDBなら、falseで良いかと。
+      
+      Tags: 
+        - Key: Name
+          Value: 
+            "Fn::Join": 
+              - " "
+              - - Ref: ProjectTag
+                - Ref: EnvironmentTypeTag
+                - Aurora
+        - Key: EnvironmentType
+          Value: 
+            Ref: EnvironmentTypeTag
+        - Key: Project
+          Value: 
+            Ref: ProjectTag
+  # ===== ↑RDS Auroraのインスタンス作成↑ =====
+
+  # ===== ↓RDS Auroraのアラート作成↓ =====
+  AlarmCPURDSAurora: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - CPU
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - CPU
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: CPUUtilization
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 80
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  AlarmDatabaseConnectionsRDSAurora: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - DatabaseConnections
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - DatabaseConnections
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: DatabaseConnections
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 
+        Ref: RDSAuroraDBConnectionThreshold
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  AlarmFreeableMemoryRDSAurora: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - FreeableMemory
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - FreeableMemory
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: FreeableMemory
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 
+        Ref: RDSAuroraFreeMemoryThreshold
+      Statistic: Average
+      ComparisonOperator: LessThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  AlarmSelectLatencyRDSAurora: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - SelectLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - SelectLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: SelectLatency
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 500
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  AlarmInsertLatencyRDSAurora: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - InsertLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - InsertLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: InsertLatency
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 500
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  AlarmUpdateLatencyRDSAurora: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - UpdateLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - UpdateLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: UpdateLatency
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 500
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  AlarmDeleteLatencyRDSAuroraMetadata: 
+    Type: "AWS::CloudWatch::Alarm"
+    DependsOn: RDSAuroraInstance
+    Properties: 
+      ActionsEnabled: true
+      AlarmName: 
+        "Fn::Join": 
+          - " "
+          - - DeleteLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmDescription: 
+        "Fn::Join": 
+          - " "
+          - - DeleteLatency
+            - Alarm
+            - Ref: ProjectTag
+            - Ref: EnvironmentTypeTag
+            - cluster
+            - WRITER
+      AlarmActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+      MetricName: DeleteLatency
+      Namespace: "AWS/RDS"
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 500
+      Statistic: Average
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions: 
+        - Name: DBClusterIdentifier
+          Value: 
+            Ref: RDSDBCluster
+        - Name: Role
+          Value: WRITER
+      OKActions: 
+        - "Fn::Join": 
+            - ""
+            - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
+              - Ref: SnsTopic
+  # ===== ↑RDS Auroraのアラート作成↑ =====
