@@ -625,7 +625,7 @@ Resources:
             - ""
             - - "Fn::Sub": "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:"
               - Ref: SnsTopic
-  AlarmDeleteLatencyRDSAuroraMetadata: 
+  AlarmDeleteLatencyRDSAurora: 
     Type: "AWS::CloudWatch::Alarm"
     DependsOn: RDSAuroraInstance
     Properties: 

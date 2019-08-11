@@ -444,7 +444,7 @@
       }
     },
 
-    "AlarmDeleteLatencyRDSAuroraMetadata" : {
+    "AlarmDeleteLatencyRDSAurora" : {
       "Type" : "AWS::CloudWatch::Alarm",
       "DependsOn" : "RDSAuroraInstance",
       "Properties" : {
